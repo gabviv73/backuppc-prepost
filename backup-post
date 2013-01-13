@@ -104,6 +104,6 @@ done
 
 if [ "$1" != "nosuspend" ]
 then
-	echo /home/diesis/local/bin/sospendi
+	/home/diesis/local/bin/sospendi
 fi
 
