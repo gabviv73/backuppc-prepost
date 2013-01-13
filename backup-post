@@ -1,0 +1,63 @@
+#!/bin/bash
+set -x
+
+function wait () {
+echo Sleeping for $1 seconds ...
+sleep $1
+}
+
+function umountretry() {
+MNTPT=$1
+MAXRETRY=$2
+COUNT=1
+umount $1
+while [ $COUNT -lt $MAXRETRY ]
+do
+	echo "Umounting $1 try $COUNT"
+	umount $MNTPT
+	if [[ $? = 0 || $? = 2 ]]
+	then
+		UMOUNT=true
+		break
+	fi
+	COUNT=$(($COUNT+1))
+	sleep 1
+done
+
+if [ $UMOUNT = true ]
+then
+	echo "Umounted in $COUNT tries"
+else
+	echo "Umount failed"
+fi 
+}
+
+
+cd /
+echo Starting post backup job
+umountretry /mnt/backup/boot 10
+
+read P
+
+for VOLUME in home root
+do
+	
+	LVSRC=$VOLUME
+	SNAPNAME="${LVSRC}sn"
+	ORIMNT=$(mount | grep "/dev/mapper/junovg0-${VOLUME} " | cut -f 3 --delimiter=' ')
+	MNTPT=/mnt/backup${ORIMNT}
+	cd /
+	echo Umounting $MNTPT
+	umount $MNTPT
+	wait 10
+	echo Removing $SNAPNAME
+	lvremove -f /dev/mapper/junovg0-$SNAPNAME || \
+	lvremove -f /dev/mapper/junovg0-$SNAPNAME
+done
+
+if [ "$1" != "nosuspend" ]
+then
+	echo Suspending
+	echo /home/diesis/local/bin/sospendi
+fi
+

@@ -1,0 +1,36 @@
+#!/bin/bash
+
+function wait () {
+echo Sleeping for $1 seconds ...
+sleep $1
+}
+
+cd /
+echo Starting post backup job
+wait 10
+echo Umounting boot
+umount /mnt/backup/boot
+wait 10
+
+for VOLUME in home root
+do
+	
+	LVSRC=$VOLUME
+	SNAPNAME="${LVSRC}sn"
+	ORIMNT=$(mount | grep "/dev/mapper/junovg0-${VOLUME} " | cut -f 3 --delimiter=' ')
+	MNTPT=/mnt/backup${ORIMNT}
+	cd /
+	echo Umounting $MNTPT
+	umount $MNTPT
+	wait 10
+	echo Removing $SNAPNAME
+	lvremove -f /dev/mapper/junovg0-$SNAPNAME || \
+	lvremove -f /dev/mapper/junovg0-$SNAPNAME
+done
+
+if [ "$1" != "nosuspend" ]
+then
+	echo Suspending
+	echo /home/diesis/local/bin/sospendi
+fi
+

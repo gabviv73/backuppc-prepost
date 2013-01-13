@@ -1,0 +1,19 @@
+#!/bin/bash
+echo "Cleaning up previous snaphots (it takes up to 1 minute) ..."
+/usr/local/bin/backup-post nosuspend > /dev/null 2&>1
+
+mkdir -p /mnt/backup
+
+for VOLUME in root home
+do
+	LVSRC=$VOLUME
+	SNAPNAME="${LVSRC}sn"
+	ORIMNT=$(mount | grep "/dev/mapper/junovg0-${VOLUME} "| cut -f 3 --delimiter=' ')
+	MNTPT=/mnt/backup${ORIMNT}
+	lvcreate --snapshot --name $SNAPNAME --extents 50%FREE \
+		/dev/mapper/junovg0-$LVSRC
+	#mkdir -p /mnt/backup/$SNAPNAME
+	mount -o ro /dev/mapper/junovg0-$SNAPNAME $MNTPT
+done
+
+mount -o bind /boot /mnt/backup/boot

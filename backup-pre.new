@@ -1,0 +1,48 @@
+#!/bin/bash
+
+mkdir -p /mnt/backup
+
+function mountpoint() {
+PART=$1
+if ( islvm $PART )
+then	
+	VG=$(dirname ${PART})
+	VG=${VG#/dev/}
+	LV=$(basename ${PART})
+	PART=/dev/mapper/${VG}-${LV}
+fi
+echo $(mount | grep "$PART " | cut -f 3 --delimiter=' ')
+}
+
+function islvm() {
+PARTI=$1
+if ( lvs $PARTI > /dev/null 2>&1 )
+then
+ true
+else
+ false
+fi
+}
+
+# PUT root first, and othe partition to be mounted after
+# write the LVM in the form /dev/vgname/lvname
+# verify with mount thet lv are listed ad /dev/mapper/vgname-lvname"
+
+PARTITIONS="/dev/junovg0/root /dev/junovg0/home /dev/sda1"
+
+for PARTITION in $PARTITIONS
+do
+	ORIMNT=$(mountpoint ${PARTITION})
+	MNTPT=/mnt/backup${ORIMNT}
+	if ( islvm $PARTITION )
+	then
+		VG=$(dirname ${PARTITION})
+		VG=${VG#/dev/}
+		LV=$(basename ${PARTITION})
+		lvcreate --snapshot --name ${PARTITION}sn --extents 50%FREE \
+			$PARTITION
+		mount -o ro ${PARTITION}sn ${MNTPT}
+	else
+		mount -o ro,bind $PARTITION ${MNTPT}
+	fi
+done
