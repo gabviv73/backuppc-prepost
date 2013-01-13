@@ -6,30 +6,54 @@ echo Sleeping for $1 seconds ...
 sleep $1
 }
 
-function umountretry() {
-MNTPT=$1
+function ismounted () {
+MNTPT=${1}
+mount | grep " $MNTPT "
+RET=$?
+if [ "$RET" = "0" ]
+then
+	true
+else
+	false
+fi
+}
+
+function retry() {
+CMD=$1
 MAXRETRY=$2
+MSG=$3
 COUNT=1
-umount $1
+
 while [ $COUNT -lt $MAXRETRY ]
 do
-	echo "Umounting $1 try $COUNT"
-	umount $MNTPT
-	if [[ $? = 0 || $? = 2 ]]
+	echo "$MSG [try $COUNT]"
+	$CMD
+	if [[ $? = 0 ]]
 	then
-		UMOUNT=true
+		SUCCESS=true
 		break
 	fi
 	COUNT=$(($COUNT+1))
 	sleep 1
 done
 
-if [ $UMOUNT = true ]
+if [ $SUCCESS = true ]
 then
-	echo "Umounted in $COUNT tries"
+	echo "$MSG succesfull [ $COUNT tries]"
 else
-	echo "Umount failed"
+	echo "$MSG failed"
 fi 
+}
+
+function umountretry() {
+MNTPT=${1}
+
+if ( ismounted $MNTPT )
+then
+	retry "umount $MNTPT" 10 "Umounting $MNTPT"
+else
+	echo "$MNTPT not mounted"
+fi
 }
 
 
@@ -37,19 +61,20 @@ cd /
 echo Starting post backup job
 umountretry /mnt/backup/boot 10
 
-read P
-
+set -x
 for VOLUME in home root
 do
 	
 	LVSRC=$VOLUME
 	SNAPNAME="${LVSRC}sn"
 	ORIMNT=$(mount | grep "/dev/mapper/junovg0-${VOLUME} " | cut -f 3 --delimiter=' ')
-	MNTPT=/mnt/backup${ORIMNT}
+	ORIMNT=${ORIMNT%/}
+	ORIMNT=${ORIMNT#/}
+	MNTPT=/mnt/backup/${ORIMNT}
+	MNTPT=${MNTPT%/}
 	cd /
 	echo Umounting $MNTPT
-	umount $MNTPT
-	wait 10
+	umountretry $MNTPT 10
 	echo Removing $SNAPNAME
 	lvremove -f /dev/mapper/junovg0-$SNAPNAME || \
 	lvremove -f /dev/mapper/junovg0-$SNAPNAME
@@ -57,7 +82,6 @@ done
 
 if [ "$1" != "nosuspend" ]
 then
-	echo Suspending
 	echo /home/diesis/local/bin/sospendi
 fi
 

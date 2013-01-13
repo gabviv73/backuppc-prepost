@@ -1,6 +1,6 @@
 #!/bin/bash
-echo "Cleaning up previous snaphots (it takes up to 1 minute) ..."
-/usr/local/bin/backup-post nosuspend > /dev/null 2&>1
+#echo "Cleaning up previous snaphots (it takes up to 1 minute) ..."
+#/usr/local/bin/backup-post nosuspend > /dev/null 2&>1
 
 mkdir -p /mnt/backup
 
