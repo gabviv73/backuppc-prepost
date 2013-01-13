@@ -1,5 +1,4 @@
 #!/bin/bash
-set -x
 
 function wait () {
 echo Sleeping for $1 seconds ...
@@ -8,7 +7,19 @@ sleep $1
 
 function ismounted () {
 MNTPT=${1}
-mount | grep " $MNTPT "
+mount | grep -q " $MNTPT "
+RET=$?
+if [ "$RET" = "0" ]
+then
+	true
+else
+	false
+fi
+}
+
+function snapexist () {
+SNAPSHOT=${1}
+lvscan | grep -q "'$SNAPSHOT'"
 RET=$?
 if [ "$RET" = "0" ]
 then
@@ -56,12 +67,26 @@ else
 fi
 }
 
+function snapremoveretry() {
+SNAPSHOT=${1}
+
+if ( snapexist $SNAPSHOT )
+then
+	retry "snapremove $SNAPSHOT" 10 "Removing $SNAPSHOT"
+else
+	echo "$SNAPSHOT not exist"
+fi
+}
+
+function snapremove() {
+SNAPSHOT=$1
+lvremove -f $SNAPSHOT > /dev/null 2>&1
+}
 
 cd /
 echo Starting post backup job
 umountretry /mnt/backup/boot 10
 
-set -x
 for VOLUME in home root
 do
 	
@@ -73,11 +98,8 @@ do
 	MNTPT=/mnt/backup/${ORIMNT}
 	MNTPT=${MNTPT%/}
 	cd /
-	echo Umounting $MNTPT
 	umountretry $MNTPT 10
-	echo Removing $SNAPNAME
-	lvremove -f /dev/mapper/junovg0-$SNAPNAME || \
-	lvremove -f /dev/mapper/junovg0-$SNAPNAME
+	snapremoveretry /dev/junovg0/$SNAPNAME 10
 done
 
 if [ "$1" != "nosuspend" ]
